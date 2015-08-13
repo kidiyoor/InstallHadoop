@@ -1,0 +1,184 @@
+#Installs hadoop-2.2.0 on ubuntu-12.10 
+
+- hosts: all
+
+  tasks:
+    - name: creating grouphadoop
+      group: name=hadoop state=present 
+      sudo: yes
+
+    - name: adding user hduser Ubuntu
+      user: name=hduser shell=/bin/bash groups=hadoop,sudo generate_ssh_key=yes ssh_key_file=.ssh/id_rsa
+      sudo: yes
+      when: ansible_distribution == "Ubuntu"
+
+    - name: adding user hduser CentOS
+      user: name=hduser shell=/bin/bash groups=hadoop,wheel generate_ssh_key=yes ssh_key_file=.ssh/id_rsa
+      sudo: yes
+      when: ansible_distribution == "CentOS"
+
+    #- name: adding user to sudo users CentOS
+    #  shell: gpasswd -a hduser wheel
+    #  sudo: yes
+    #  when: ansible_distribution == "CentOS"
+
+    #- name: adding user to sudo users Ubuntu
+    #  shell: adduser hduser sudo
+    #  sudo: yes
+    #  when: ansible_distribution == "Ubuntu"
+      
+    - name: change password of hduser
+      shell: echo hduser:hadoop|sudo chpasswd
+      sudo: yes
+
+    - name: installing java on CentOS
+      yum: name=java-1.7.0-openjdk-devel state=installed
+      sudo: yes
+      when: ansible_distribution == "CentOS"
+   
+    #- name: update_cache ubuntu
+    #  apt: update_cache=yes
+    #  sudo: yes
+    #  when: ansible_distribution == "Ubuntu"
+   
+    - name: installing java on Ubuntu
+      apt: name=openjdk-7-jdk state=installed
+      sudo: yes
+      when: ansible_distribution == "Ubuntu"
+
+    #- name: generation of ssh key
+    #  shell: ssh-keygen -t rsa -P "" -f "/home/hduser/.ssh/id_rsa" -q
+    #  sudo_user: hduser
+
+    - name: authorize the key
+      shell: cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+      sudo_user: hduser
+
+    - name: StrictHostKeyChecking  no localhost
+      shell: ssh -o StrictHostKeyChecking=no hduser@localhost exit
+      sudo_user: hduser
+
+    - name: StrictHostKeyChecking  no 0.0.0.0
+      shell: ssh -o StrictHostKeyChecking=no hduser@0.0.0.0 exit
+      sudo_user: hduser
+
+   # - name:first time login
+   #   shell: ssh-keyscan -H localhost >> ~/.ssh/known_hosts
+   #   sudo_user: hduser
+   #   when: ansible_distribution == "Debian"
+   
+    - name: edit bashrc JAVA_HOME centos
+      shell: echo 'export JAVA_HOME=/usr/lib/jvm/java-1.7.0-openjdk-1.7.0.79-2.5.5.1.el7_1.x86_64' >> /home/hduser/.bashrc
+      sudo_user: hduser
+      when: ansible_distribution == "CentOS"
+
+    - name: edit bashrc JAVA_HOME ubuntu
+      shell: echo 'export JAVA_HOME=/usr/lib/jvm/java-1.7.0-openjdk-i386' >> /home/hduser/.bashrc
+      sudo_user: hduser
+      when: ansible_distribution == "Ubuntu"
+
+    - name: edit bashrc HADOOP_INSTALL
+      shell: echo 'export HADOOP_INSTALL=/home/hduser/hadoop' >> /home/hduser/.bashrc
+      sudo_user: hduser
+
+    - name: edit bashrc HADOOP_INSTALL/bin
+      shell: echo 'export PATH=$PATH:$HADOOP_INSTALL/bin' >> /home/hduser/.bashrc
+      sudo_user: hduser
+
+    - name: edit bashrc HADOOP_INSTALL/sbin
+      shell: echo 'export PATH=$PATH:$HADOOP_INSTALL/sbin' >> /home/hduser/.bashrc
+      sudo_user: hduser
+
+    - name: edit bashrc HADOOP_MAPRED_HOME
+      shell: echo 'export HADOOP_MAPRED_HOME=$HADOOP_INSTALL' >> /home/hduser/.bashrc
+      sudo_user: hduser
+
+    - name: edit bashrc HADOOP_COMMON_HOME
+      shell: echo 'export HADOOP_COMMON_HOME=$HADOOP_INSTALL' >> /home/hduser/.bashrc
+      sudo_user: hduser
+
+    - name: edit bashrc HADOOP_HDFS_HOME
+      shell: echo 'export HADOOP_HDFS_HOME=$HADOOP_INSTALL' >> /home/hduser/.bashrc
+      sudo_user: hduser
+
+    - name: edit bashrc HADOOP_INSTALL
+      shell: echo 'export YARN_HOME=$HADOOP_INSTALL' >> /home/hduser/.bashrc
+      sudo_user: hduser
+
+    - name: download hadoop
+      shell: wget https://archive.apache.org/dist/hadoop/core/hadoop-2.2.0/hadoop-2.2.0.tar.gz -P /home/hduser/
+      sudo_user: hduser
+
+    #- name: download hadoop
+    #  get_url: url=http://192.168.0.108:3000/hadoopsrc dest=/home/hduser/
+    #  sudo_user: hduser
+
+    - name: extract hadoop
+      shell: cd /home/hduser/ && tar vxzf hadoop-2.2.0.tar.gz
+      sudo_user: hduser
+
+    - name: move hadoop
+      shell: cd /home/hduser/ && mv hadoop-2.2.0 hadoop
+      sudo_user: hduser  
+    
+    - name: edit hadoop-env.sh CentOS
+      lineinfile: dest=/home/hduser/hadoop/etc/hadoop/hadoop-env.sh 
+                  regexp='export JAVA_HOME.*' line='export JAVA_HOME=/usr/lib/jvm/java-1.7.0-openjdk-1.7.0.79-2.5.5.1.el7_1.x86_64'
+                  state=present
+                  create=True
+      sudo_user: hduser
+      when: ansible_distribution == "CentOS"
+  
+    - name: edit hadoop-env.sh Ubuntu
+      lineinfile: dest=/home/hduser/hadoop/etc/hadoop/hadoop-env.sh 
+                  regexp='export JAVA_HOME.*' line='export JAVA_HOME=/usr/lib/jvm/java-1.7.0-openjdk-i386'
+                  state=present
+                  create=True
+      sudo_user: hduser
+      when: ansible_distribution == "Ubuntu"
+    
+    - name: edit core-site.xml
+      lineinfile: dest=/home/hduser/hadoop/etc/hadoop/core-site.xml 
+                  regexp='<configuration>' line='<configuration>\n\t<property>\n\t\t<name>fs.default.name</name>\n\t\t<value>hdfs://localhost:9000</value>\n\t</property>'
+                  state=present
+                  create=True
+      sudo_user: hduser
+    
+    - name: edit yarn-site.xml
+      lineinfile: dest=/home/hduser/hadoop/etc/hadoop/yarn-site.xml 
+                  regexp='<configuration>' line='<configuration>\n\t<property>\n\t\t<name>yarn.nodemanager.aux-services</name>\n\t\t<value>mapreduce_shuffle</value>\n\t</property>\n\t<property>\n\t\t<name>yarn.nodemanager.aux-services.mapreduce.shuffle.class</name>\n\t\t<value>org.apache.hadoop.mapred.ShuffleHandler</value>\n\t</property>'
+                  state=present
+                  create=True
+      sudo_user: hduser
+
+    - name: move hadoop
+      shell: cd /home/hduser/hadoop/etc/hadoop && mv mapred-site.xml.template mapred-site.xml
+      sudo_user: hduser   
+      sudo: yes
+    
+    - name: edit mapred-site.xml
+      lineinfile: dest=/home/hduser/hadoop/etc/hadoop/mapred-site.xml
+                  regexp='<configuration>' line='<configuration>\n\t<property>\n\t\t<name>mapreduce.framework.name</name>\n\t\t<value>yarn</value>\n\t</property>'
+                  state=present
+                  create=True 
+      sudo_user: hduser
+     
+    - name: create directories
+      shell: cd /home/hduser &&  mkdir -p mydata/hdfs/namenode -p mydata/hdfs/datanode
+      sudo_user: hduser
+
+    - name: edit hdfs-site.xml
+      lineinfile: dest=/home/hduser/hadoop/etc/hadoop/hdfs-site.xml
+                  regexp='<configuration>' line='<configuration>\n\t<property>\n\t\t<name>dfs.replication</name>\n\t\t<value>1</value>\n\t</property>\n\t<property>\n\t\t<name>dfs.namenode.name.dir</name>\n\t\t<value>file:/home/hduser/mydata/hdfs/namenode</value>\n\t</property>\n\t<property>\n\t\t<name>dfs.datanode.data.dir</name>\n\t\t<value>file:/home/hduser/mydata/hdfs/datanode</value>\n\t</property>'
+                  state=present
+                  create=True
+      sudo_user: hduser
+    
+    - name: format namenode
+      shell: cd /home/hduser/hadoop/bin/ && ./hdfs namenode -format -y
+      sudo_user: hduser
+
+    - name: start-all.sh
+      shell: sudo -u hduser sh -c 'cd /home/hduser/hadoop/sbin && ./start-all.sh'
+      sudo_user: hduser
+      
