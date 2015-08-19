@@ -118,7 +118,7 @@
       sudo_user: hduser
 
     - name: move hadoop
-      shell: cd /home/hduser/ && sudo mv hadoop-2.2.0 hadoop
+      shell: cd /home/hduser/ && mv hadoop-2.2.0 hadoop
       sudo_user: hduser  
     
     - name: edit hadoop-env.sh CentOS
@@ -154,7 +154,6 @@
     - name: move hadoop
       shell: cd /home/hduser/hadoop/etc/hadoop && sudo mv mapred-site.xml.template mapred-site.xml
       sudo_user: hduser   
-      sudo: yes
     
     - name: edit mapred-site.xml
       lineinfile: dest=/home/hduser/hadoop/etc/hadoop/mapred-site.xml
